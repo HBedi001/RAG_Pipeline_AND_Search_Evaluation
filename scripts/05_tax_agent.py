@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_chroma import Chroma
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage, ToolMessage, BaseMessage
 
 # 1. Load environment variables
 load_dotenv()
@@ -48,7 +48,8 @@ def run_agent_workflow():
     query = "What are the rules regarding standard deductions for individuals who can be claimed as a dependent on someone else's tax return?"
     print(f"\n❓ Agent Mission: {query}\n")
 
-    messages = [HumanMessage(content=query)]
+    # Explicitly type-hint messages list to prevent type checker warnings
+    messages: list[BaseMessage] = [HumanMessage(content=query)]
     
     # First LLM call: Model decides whether to call the tool
     ai_msg = llm_with_tools.invoke(messages)
@@ -59,9 +60,10 @@ def run_agent_workflow():
         for tool_call in ai_msg.tool_calls:
             print(f"🛠️ Agent decided to invoke tool: '{tool_call['name']}' with query: {tool_call['args']}")
             
-            # Execute the matching tool locally
+            # Execute the matching tool locally with explicit argument extraction
             if tool_call["name"] == "search_tax_database":
-                tool_output = search_tax_database.invoke(tool_call["args"])
+                query_arg = tool_call["args"].get("query", query)
+                tool_output = search_tax_database.invoke(query_arg)
                 messages.append(ToolMessage(content=tool_output, tool_call_id=tool_call["id"]))
 
         # Second LLM call: Synthesize final answer using tool outputs
